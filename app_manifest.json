@@ -1,0 +1,36 @@
+{
+    "display_information": {
+        "name": "notion-slack-unfurler"
+    },
+    "features": {
+        "bot_user": {
+            "display_name": "notion-slack-unfurler",
+            "always_online": false
+        },
+        "unfurl_domains": [
+            "notion.so"
+        ]
+    },
+    "oauth_config": {
+        "scopes": {
+            "bot": [
+                "links:read",
+                "links:write",
+                "channels:read"
+            ]
+        }
+    },
+    "settings": {
+        "event_subscriptions": {
+            "bot_events": [
+                "link_shared"
+            ]
+        },
+        "interactivity": {
+            "is_enabled": true
+        },
+        "org_deploy_enabled": false,
+        "socket_mode_enabled": true,
+        "token_rotation_enabled": false
+    }
+}
