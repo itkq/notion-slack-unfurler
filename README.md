@@ -22,4 +22,4 @@ TBD
 
 https://www.notion.so/itkq/Loresm-ipsum-fb71e34ab1994a939f66bfd166e88baa
 
-![image](https://user-images.githubusercontent.com/8341422/177571268-55de5978-6bf7-463a-a57d-ff47f10d433f.png)
+![image](https://user-images.githubusercontent.com/8341422/177572538-aca4c4f9-defc-4114-86ea-fc45e6520db1.png)

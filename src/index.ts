@@ -10,6 +10,7 @@ if (notionWorkspace === undefined) {
 const notionDomain = process.env.NOTION_DOMAIN ?? 'notion.so';
 const summaryNumberOfLines = Number(process.env.SUMMARY_NUMBER_OF_LINES ?? '5');
 const summaryNumberOfCharacters = Number(process.env.SUMMARY_NUMBER_OF_CHARACTERS ?? '200');
+const notionIconUrl = "https://www.notion.so/front-static/favicon.ico";
 
 export const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
@@ -128,6 +129,8 @@ const unfurlNotion = async (urlStr: string): Promise<MessageAttachment | null> =
   }
 
   return {
+    author_icon: notionIconUrl,
+    author_name: `${notionWorkspace}'s Notion`,
     title: title,
     title_link: url.toString(),
     text: head,
