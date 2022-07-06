@@ -1,0 +1,30 @@
+{
+  "name": "notion-slack-unfurler",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node ./src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/itkq/notion-slack-unfurler.git"
+  },
+  "author": "Takuya Kosugiyama",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/itkq/notion-slack-unfurler/issues"
+  },
+  "homepage": "https://github.com/itkq/notion-slack-unfurler#readme",
+  "dependencies": {
+    "@notionhq/client": "^1.0.4",
+    "@slack/bolt": "^3.11.3",
+    "@slack/web-api": "^6.7.2",
+    "notion-to-md": "^2.5.0"
+  },
+  "devDependencies": {
+    "ts-node": "^10.8.2",
+    "typescript": "^4.7.4"
+  }
+}
