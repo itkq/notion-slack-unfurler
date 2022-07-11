@@ -1,6 +1,6 @@
 import { App } from '@slack/bolt';
 import { MessageAttachment, LinkUnfurls } from '@slack/web-api';
-import { Client } from '@notionhq/client';
+import { APIResponseError, Client } from '@notionhq/client';
 import { NotionToMarkdown } from 'notion-to-md';
 
 const notionWorkspace = process.env.NOTION_WORKSPACE;
@@ -11,6 +11,7 @@ const notionDomain = process.env.NOTION_DOMAIN ?? 'notion.so';
 const summaryNumberOfLines = Number(process.env.SUMMARY_NUMBER_OF_LINES ?? '5');
 const summaryNumberOfCharacters = Number(process.env.SUMMARY_NUMBER_OF_CHARACTERS ?? '200');
 const notionIconUrl = "https://www.notion.so/front-static/favicon.ico";
+const debug = process.env.DEBUG === '1';
 
 export const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
@@ -61,6 +62,7 @@ app.event('link_shared', async ({ event, client }) => {
 interface NotionPage {
   properties: NotionPageProperties;
   parent: NotionPageParent;
+  icon?: NotionPageIcon;
 }
 
 interface NotionPageParent {
@@ -73,17 +75,31 @@ interface NotionPageProperties {
 }
 
 interface NotionPagePropertyTitle {
-  title: NotionPagePropertyTitleValue[];
+  title: NotionPropertyTitleValue[];
 }
 
-interface NotionPagePropertyTitleValue {
+interface NotionPropertyTitleValue {
   plain_text: string;
+}
+
+interface NotionDatabase {
+  icon?: NotionPageIcon
+  title: NotionPropertyTitleValue[];
+}
+
+interface NotionPageIcon {
+  type: string;
+  emoji: string;
 }
 
 const unfurlNotion = async (urlStr: string): Promise<MessageAttachment | null> => {
   // XXX: unfurl input is escaped
   const url = new URL(urlStr.replace("&amp;", "&"));
-  
+
+  return await handlePageOrDatabase(url);
+}
+
+const handlePageOrDatabase = async (url: URL): Promise<MessageAttachment | null> => {
   const elems = url.pathname.split('/');
   if (elems.length !== 3) {
     throw new Error(`Unexpected pathname: ${url.pathname}`);
@@ -93,32 +109,59 @@ const unfurlNotion = async (urlStr: string): Promise<MessageAttachment | null> =
     return null;
   }
 
-  let pageId: string;
+  // Apply the following (undocumented) rules.
+  // 
+  // https://www.notion.so/workspace/0123456789abcdef0123456789abcdef
+  //   => just a page
+  // https://www.notion.so/workspace/0123456789abcdef0123456789abcdef?v=0123456789abcdef0123456789abcdef&p=0123456789abcdef0123456789abcdef 
+  //   => a page preview in a database
+  // https://www.notion.so/workspace/0123456789abcdef0123456789abcdef?v=0123456789abcdef0123456789abcdef
+  //   => a full database page
+
   if (url.searchParams.has('p')) {
-    pageId = url.searchParams.get('p')!;
-  } else {
-    const decoratedPageId = elems[2];
-    const m = decoratedPageId.match(/([^-]+)$/m);
-    if (m === null) {
-      return null;
-    }
-    pageId = m[1];
+    const pageId = url.searchParams.get('p')!;
+    return await handlePage(url.toString(), pageId);
+  } 
+  
+  const decoratedPageId = elems[2];
+  const m = decoratedPageId.match(/([^-]+)$/m);
+  if (m === null) {
+    return null;
+  }
+  const pageIdOrDatabaseId = m[1];
+
+  if (url.searchParams.has('v')) {
+    return await handleDatabase(url.toString(), pageIdOrDatabaseId);
   }
 
+  return await handlePage(url.toString(), pageIdOrDatabaseId);
+}
+
+const handlePage = async (url: string, pageId: string): Promise<MessageAttachment> => {
   const rawPage = await notionClient.pages.retrieve({ page_id: pageId });
-  const page = (rawPage as unknown as NotionPage);
+  const page = rawPage as unknown as NotionPage;
+
+  if (debug) {
+    console.debug(page);
+  }
+
   let title: string | undefined;
   switch (page.parent.type) {
     case 'database_id': 
-      title = (page as unknown as NotionPage).properties.Name?.title[0].plain_text;
+      title = page.properties.Name?.title[0].plain_text;
       break;
     case 'page_id':
-      title = (page as unknown as NotionPage).properties.title?.title[0].plain_text;
+      title = page.properties.title?.title[0].plain_text;
       break;
   }
 
   if (title === undefined) {
     throw new Error(`Failed to guess title from pageId: ${pageId}`);
+  }
+
+  const icon = page.icon?.emoji;
+  if (icon !== undefined) {
+    title = icon + ' ' + title;
   }
 
   const mdBlocks = await n2m.pageToMarkdown(pageId);
@@ -132,8 +175,36 @@ const unfurlNotion = async (urlStr: string): Promise<MessageAttachment | null> =
     author_icon: notionIconUrl,
     author_name: `${notionWorkspace}'s Notion`,
     title: title,
-    title_link: url.toString(),
+    title_link: url,
     text: head,
+    footer: "Notion",
+  };
+}
+
+const handleDatabase = async (url: string, databaseId: string): Promise<MessageAttachment> => {
+  const rawDatabase = await notionClient.databases.retrieve({ database_id: databaseId });
+  const database = (rawDatabase as unknown as NotionDatabase);
+
+  if (debug) {
+    console.debug(database);
+  }
+
+  let title = database.title[0].plain_text;
+  if (title === undefined) {
+    throw new Error(`Failed to guess title from databaseId: ${databaseId}`);
+  }
+
+  const icon = database.icon?.emoji;
+  if (icon !== undefined) {
+    title = icon + ' ' + title;
+  }
+
+  return {
+    author_icon: notionIconUrl,
+    author_name: `${notionWorkspace}'s Notion`,
+    title: title,
+    title_link: url,
+    text: "This is a full database page.",
     footer: "Notion",
   };
 }
